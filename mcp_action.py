@@ -12,12 +12,64 @@ from fastapi import Request
 import json
 import os
 import uuid
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Literal
 import aiohttp
 
 # Store for MCP server configurations
 MCP_SERVERS_FILE = os.path.expanduser("~/.open-webui/mcp-servers.json")
 os.makedirs(os.path.dirname(MCP_SERVERS_FILE), exist_ok=True)
+
+# Predefined list of popular MCP servers
+POPULAR_SERVERS = {
+    "anthropic_official": {
+        "name": "Anthropic Reference Implementation",
+        "url": "https://mcp.anthropic.com/v1/anthropic",
+        "description": "Official Anthropic MCP server with core features",
+        "needs_api_key": True
+    },
+    "brave_search": {
+        "name": "Brave Search",
+        "url": "https://mcp.brave.com/v1/search",
+        "description": "Web and local search using Brave's Search API",
+        "needs_api_key": True
+    },
+    "kagi_search": {
+        "name": "Kagi Search",
+        "url": "https://kagi.com/api/v1/mcp",
+        "description": "Search the web using Kagi's search API",
+        "needs_api_key": True
+    },
+    "tavily": {
+        "name": "Tavily Search",
+        "url": "https://api.tavily.com/mcp",
+        "description": "Search engine for AI agents by Tavily",
+        "needs_api_key": True
+    },
+    "openai": {
+        "name": "OpenAI",
+        "url": "https://api.openai.com/v1/mcp",
+        "description": "OpenAI models integration",
+        "needs_api_key": True
+    },
+    "filesystem": {
+        "name": "Filesystem",
+        "url": "http://localhost:3000",
+        "description": "Local filesystem access (requires local server setup)",
+        "needs_api_key": False
+    },
+    "github": {
+        "name": "GitHub",
+        "url": "http://localhost:3001",
+        "description": "GitHub API integration (requires local server setup)",
+        "needs_api_key": True
+    },
+    "memory": {
+        "name": "Memory",
+        "url": "http://localhost:3002",
+        "description": "Knowledge graph-based memory system (requires local server setup)",
+        "needs_api_key": False
+    }
+}
 
 def load_mcp_servers() -> Dict:
     """Load MCP server configurations from file"""
@@ -45,7 +97,7 @@ class Action:
     async def list_servers(self, _user_: dict = None, _request_: Request = None) -> str:
         """List all configured MCP servers"""
         if not self.servers:
-            return "No MCP servers configured. Use 'add_server' to add one."
+            return "No MCP servers configured. Use 'add_server' to add one, or 'list_popular_servers' to see predefined options."
         
         response = "## Configured MCP Servers\n\n"
         for server_id, server in self.servers.items():
@@ -56,6 +108,62 @@ class Action:
             response += f"- API Key: {'Configured' if server.get('api_key') else 'Not set'}\n\n"
         
         return response
+
+    async def list_popular_servers(self, _user_: dict = None, _request_: Request = None) -> str:
+        """List popular predefined MCP servers that can be easily added"""
+        response = "## Popular MCP Servers\n\n"
+        response += "These are popular MCP servers that you can add to your configuration. Use the 'add_popular_server' command with the server ID.\n\n"
+        
+        for server_id, server in POPULAR_SERVERS.items():
+            response += f"### {server['name']}\n"
+            response += f"- ID: `{server_id}`\n"
+            response += f"- URL: {server['url']}\n"
+            response += f"- Description: {server['description']}\n"
+            response += f"- API Key Required: {'Yes' if server['needs_api_key'] else 'No'}\n\n"
+        
+        response += "To add one of these servers, use the command:\n"
+        response += "```\n/add_popular_server server_id=\"server_id\" api_key=\"your-api-key\" default_model=\"model-name\"\n```\n"
+        
+        return response
+
+    async def add_popular_server(
+        self,
+        server_id: str,
+        api_key: str = "",
+        default_model: str = "",
+        _user_: dict = None,
+        _request_: Request = None
+    ) -> str:
+        """
+        Add a predefined popular MCP server
+        :param server_id: ID of the predefined server (from the list_popular_servers command)
+        :param api_key: API key for authentication (required for some servers)
+        :param default_model: Default model to use for this server (optional)
+        """
+        if server_id not in POPULAR_SERVERS:
+            return f"Error: No predefined server found with ID '{server_id}'. Use 'list_popular_servers' to see available options."
+        
+        server_info = POPULAR_SERVERS[server_id]
+        
+        # Check if API key is needed but not provided
+        if server_info["needs_api_key"] and not api_key:
+            return f"Error: The server '{server_info['name']}' requires an API key. Please provide one using the api_key parameter."
+        
+        # Generate a unique ID for the server
+        new_server_id = str(uuid.uuid4())
+        
+        # Add the server to the configuration
+        self.servers[new_server_id] = {
+            "name": server_info["name"],
+            "url": server_info["url"],
+            "api_key": api_key,
+            "default_model": default_model
+        }
+        
+        # Save the updated configuration
+        save_mcp_servers(self.servers)
+        
+        return f"MCP server '{server_info['name']}' added successfully!\nServer ID: `{new_server_id}`\n\nUse this ID in the MCP Connector Pipe Function configuration."
 
     async def add_server(
         self, 
