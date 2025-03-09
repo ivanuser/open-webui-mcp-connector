@@ -1,4 +1,4 @@
-""" 
+"""
 title: MCP Server Manager
 author: Open WebUI Contributor
 description: Manage MCP (Model Context Protocol) servers in Open WebUI
