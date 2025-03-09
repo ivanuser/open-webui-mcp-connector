@@ -3,7 +3,7 @@ title: MCP Server Manager
 author: Open WebUI Contributor
 description: Manage MCP (Model Context Protocol) servers in Open WebUI
 required_open_webui_version: 0.5.0
-version: 0.1.0
+version: 0.1.1
 license: MIT
 """
 
@@ -87,15 +87,13 @@ def save_mcp_servers(servers: Dict) -> None:
         json.dump(servers, f)
 
 class Action:
-    def __init__(self):
-        self.valves = self.Valves()
+    def init(self):
+        """Initialize the Action function"""
         self.servers = load_mcp_servers()
 
-    class Valves(BaseModel):
-        pass
-
-    async def list_servers(self, _user_: dict = None, _request_: Request = None) -> str:
+    async def list_servers(self) -> str:
         """List all configured MCP servers"""
+        self.servers = load_mcp_servers()
         if not self.servers:
             return "No MCP servers configured. Use 'add_server' to add one, or 'list_popular_servers' to see predefined options."
         
@@ -109,7 +107,7 @@ class Action:
         
         return response
 
-    async def list_popular_servers(self, _user_: dict = None, _request_: Request = None) -> str:
+    async def list_popular_servers(self) -> str:
         """List popular predefined MCP servers that can be easily added"""
         response = "## Popular MCP Servers\n\n"
         response += "These are popular MCP servers that you can add to your configuration. Use the 'add_popular_server' command with the server ID.\n\n"
@@ -126,20 +124,14 @@ class Action:
         
         return response
 
-    async def add_popular_server(
-        self,
-        server_id: str,
-        api_key: str = "",
-        default_model: str = "",
-        _user_: dict = None,
-        _request_: Request = None
-    ) -> str:
+    async def add_popular_server(self, server_id: str, api_key: str = "", default_model: str = "") -> str:
         """
         Add a predefined popular MCP server
         :param server_id: ID of the predefined server (from the list_popular_servers command)
         :param api_key: API key for authentication (required for some servers)
         :param default_model: Default model to use for this server (optional)
         """
+        self.servers = load_mcp_servers()
         if server_id not in POPULAR_SERVERS:
             return f"Error: No predefined server found with ID '{server_id}'. Use 'list_popular_servers' to see available options."
         
@@ -165,15 +157,7 @@ class Action:
         
         return f"MCP server '{server_info['name']}' added successfully!\nServer ID: `{new_server_id}`\n\nUse this ID in the MCP Connector Pipe Function configuration."
 
-    async def add_server(
-        self, 
-        name: str, 
-        url: str, 
-        api_key: str = "", 
-        default_model: str = "",
-        _user_: dict = None, 
-        _request_: Request = None
-    ) -> str:
+    async def add_server(self, name: str, url: str, api_key: str = "", default_model: str = "") -> str:
         """
         Add a new MCP server
         :param name: Friendly name for the server
@@ -181,6 +165,7 @@ class Action:
         :param api_key: API key for authentication (optional)
         :param default_model: Default model to use for this server (optional)
         """
+        self.servers = load_mcp_servers()
         # Validate URL
         if not url.startswith(("http://", "https://")):
             return "Error: URL must start with http:// or https://"
@@ -201,16 +186,7 @@ class Action:
         
         return f"MCP server '{name}' added successfully!\nServer ID: `{server_id}`\n\nUse this ID in the MCP Connector Pipe Function configuration."
 
-    async def update_server(
-        self, 
-        server_id: str, 
-        name: str = None, 
-        url: str = None, 
-        api_key: str = None, 
-        default_model: str = None,
-        _user_: dict = None, 
-        _request_: Request = None
-    ) -> str:
+    async def update_server(self, server_id: str, name: str = None, url: str = None, api_key: str = None, default_model: str = None) -> str:
         """
         Update an existing MCP server
         :param server_id: ID of the server to update
@@ -219,6 +195,7 @@ class Action:
         :param api_key: New API key (optional)
         :param default_model: New default model (optional)
         """
+        self.servers = load_mcp_servers()
         if server_id not in self.servers:
             return f"Error: No server found with ID '{server_id}'"
         
@@ -242,11 +219,12 @@ class Action:
         
         return f"MCP server '{server['name']}' updated successfully!"
 
-    async def delete_server(self, server_id: str, _user_: dict = None, _request_: Request = None) -> str:
+    async def delete_server(self, server_id: str) -> str:
         """
         Delete an MCP server
         :param server_id: ID of the server to delete
         """
+        self.servers = load_mcp_servers()
         if server_id not in self.servers:
             return f"Error: No server found with ID '{server_id}'"
         
@@ -260,11 +238,12 @@ class Action:
         
         return f"MCP server '{server_name}' deleted successfully!"
 
-    async def test_connection(self, server_id: str, _user_: dict = None, _request_: Request = None) -> str:
+    async def test_connection(self, server_id: str) -> str:
         """
         Test connection to an MCP server
         :param server_id: ID of the server to test
         """
+        self.servers = load_mcp_servers()
         if server_id not in self.servers:
             return f"Error: No server found with ID '{server_id}'"
         
@@ -308,11 +287,12 @@ class Action:
         except Exception as e:
             return f"Error: Failed to communicate with the MCP server: {str(e)}"
 
-    async def get_models(self, server_id: str, _user_: dict = None, _request_: Request = None) -> str:
+    async def get_models(self, server_id: str) -> str:
         """
         Get available models from an MCP server
         :param server_id: ID of the server to query
         """
+        self.servers = load_mcp_servers()
         if server_id not in self.servers:
             return f"Error: No server found with ID '{server_id}'"
         
