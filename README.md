@@ -10,98 +10,81 @@ This repository provides integration between Open WebUI and MCP (Model Context P
 - Test connectivity to servers
 - Secure API key storage
 - Support for streaming responses
-- Easy-to-use interface through text commands
+- Straightforward UI configuration
 
 ## Installation
 
-### Method 1: Manual Installation
+### Step 1: Install Both Functions
 
-1. Download the Pipe Function file:
-   - `mcp_pipe.py` - The main connector Pipe Function with built-in server management
+1. Download the Function files:
+   - `mcp_pipe.py` - The main connector Pipe Function
+   - `mcp_action.py` - The server management Action Function
 
 2. In Open WebUI, go to **Admin > Settings > Functions**
 
-3. Click "Import" and select the downloaded file
+3. Click "Import" and select the downloaded files
 
-4. Enable the imported Function
+4. Enable both imported Functions
 
-### Method 2: Direct Installation from GitHub
+### Alternative: Direct Installation from GitHub
 
 1. In Open WebUI, go to **Admin > Settings > Functions**
 
 2. Click "New" and select "Import from URL"
 
-3. Enter the URL of the Function file:
-   - `https://raw.githubusercontent.com/ivanuser/open-webui-mcp-connector/main/mcp_pipe.py`
+3. Enter the URLs of the Function files:
+   - Pipe Function: `https://raw.githubusercontent.com/ivanuser/open-webui-mcp-connector/main/mcp_pipe.py`
+   - Action Function: `https://raw.githubusercontent.com/ivanuser/open-webui-mcp-connector/main/mcp_action.py`
 
-4. Enable the imported Function
+4. Enable both imported Functions
 
 ## Usage
 
-### Setting Up MCP Servers
+### Step 1: Add an MCP Server
 
-1. Enable the "MCP Connector" Pipe Function in **Admin > Settings > Functions**
+1. Open a new chat and select any model
 
-2. Start a new chat using any model
+2. Use the MCP Server Manager commands to add a server:
 
-3. Use the following commands to manage your MCP servers:
-
-   - **Get help and list of commands**:
+   - List popular predefined servers:
      ```
-     !mcp help
+     /list_popular_servers
      ```
 
-   - **List predefined popular servers**:
+   - Add a popular server (like Brave Search):
      ```
-     !mcp list_popular
-     ```
-
-   - **Add a predefined popular server**:
-     ```
-     !mcp add_popular brave_search your-api-key
+     /add_popular_server server_id="brave_search" api_key="your-api-key" default_model="default-model-name"
      ```
 
-   - **Add a custom server**:
+   - Or add a custom server:
      ```
-     !mcp add myserver https://example.com/api your-api-key default-model
-     ```
-   
-   - **List all configured servers**:
-     ```
-     !mcp list
-     ```
-   
-   - **Select server for current session**:
-     ```
-     !mcp use server-id-from-list
-     ```
-   
-   - **Test a server connection**:
-     ```
-     !mcp test server-id
-     ```
-   
-   - **Get available models**:
-     ```
-     !mcp models server-id
-     ```
-   
-   - **Update a server**:
-     ```
-     !mcp update server-id field value
-     ```
-     Fields can be: name, url, api_key, default_model
-   
-   - **Delete a server**:
-     ```
-     !mcp delete server-id
+     /add_server name="My MCP Server" url="https://example.com/api" api_key="your-api-key" default_model="default-model-name"
      ```
 
-### Using MCP Servers
+3. The command will output a server ID. **Copy this ID** - you'll need it in the next step.
 
-1. Once you've configured and selected a server with `!mcp use server-id`, you can start chatting with it immediately.
+### Step 2: Configure the MCP Connector
 
-2. The MCP Connector will now handle your messages and send them to the selected MCP server.
+1. Go to **Admin > Settings > Functions**
+
+2. Find the "MCP Connector" function and click the gear icon (settings)
+
+3. In the "server_id" field, paste the server ID you copied in Step 1
+
+4. Optionally configure other settings:
+   - default_model: Override the server's default model
+   - timeout_seconds: Adjust request timeout (default: 30 seconds)
+   - stream: Enable/disable streaming responses (default: false)
+
+5. Click "Save"
+
+### Step 3: Use the MCP Connector
+
+1. Start a new chat
+
+2. From the model selection dropdown, select "MCP Connector"
+
+3. Start chatting normally! Your messages will be sent to the configured MCP server
 
 ## Predefined Popular Servers
 
@@ -116,50 +99,33 @@ The connector includes a list of popular predefined MCP servers that you can eas
 - **GitHub** - GitHub API integration (requires local setup)
 - **Memory** - Knowledge graph-based memory system (requires local setup)
 
-You can view the complete list with detailed information using the `!mcp list_popular` command.
+You can view the complete list with detailed information using the `/list_popular_servers` command.
 
-## Example Workflow
+## Managing Your Servers
 
-Here's a full example of how to set up and use an MCP server:
+- **List all servers**:
+  ```
+  /list_servers
+  ```
 
-1. List popular servers:
-   ```
-   !mcp list_popular
-   ```
-
-2. Add a Brave Search server:
-   ```
-   !mcp add_popular brave_search your-api-key
-   ```
-
-3. List your configured servers:
-   ```
-   !mcp list
-   ```
-
-4. Select the server to use (replace server-id with the actual ID from the list):
-   ```
-   !mcp use server-id
-   ```
-
-5. Now you can chat directly with the Brave Search MCP server!
-
-## Compatibility
-
-This connector works with any server that implements the OpenAI API-compatible endpoints:
-
-- `/v1/chat/completions` - Used for chat interactions
-- `/v1/models` - Used for listing available models
+- **Delete a server**:
+  ```
+  /delete_server server_id="server-id-from-list"
+  ```
 
 ## Troubleshooting
 
 If you encounter issues:
 
-1. Check that the server URL is correct and includes the protocol (http:// or https://)
-2. Verify your API key is valid
-3. Ensure the server supports the OpenAI-compatible chat completions endpoint
-4. Test the connection using the `!mcp test server-id` command
-5. Check for error messages in the Open WebUI logs
+1. **No MCP server selected error**: Make sure you've added a server and configured the MCP Connector with the correct server ID.
+
+2. **Connection errors**: Check that the server URL is correct and your API key is valid.
+
+3. **Function not working**: Make sure both functions are properly imported and enabled in Admin > Settings > Functions.
+
+4. **Command not recognized**: Try typing the command in a new chat with a default model (not the MCP Connector).
+
+5. **Server responds with errors**: Check that the server supports the OpenAI-compatible chat completions endpoint.
 
 ## License
 
