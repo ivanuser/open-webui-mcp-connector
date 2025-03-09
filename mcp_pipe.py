@@ -1,4 +1,4 @@
-""" 
+"""
 title: MCP Connector
 author: Open WebUI Contributor
 description: Connect to MCP (Model Context Protocol) servers from Open WebUI
