@@ -3,7 +3,7 @@ title: MCP Connector
 author: Open WebUI Contributor
 description: Connect to MCP (Model Context Protocol) servers from Open WebUI
 required_open_webui_version: 0.5.0
-version: 0.2.0
+version: 0.2.1
 license: MIT
 """
 
@@ -17,6 +17,7 @@ from typing import Dict, List, Optional
 
 # Store for MCP server configurations
 MCP_SERVERS_FILE = os.path.expanduser("~/.open-webui/mcp-servers.json")
+MCP_CONFIG_FILE = os.path.expanduser("~/.open-webui/mcp-config.json")
 os.makedirs(os.path.dirname(MCP_SERVERS_FILE), exist_ok=True)
 
 # Predefined list of popular MCP servers
@@ -86,10 +87,29 @@ def save_mcp_servers(servers: Dict) -> None:
     with open(MCP_SERVERS_FILE, "w") as f:
         json.dump(servers, f)
 
+def load_mcp_config() -> Dict:
+    """Load MCP config from file"""
+    if not os.path.exists(MCP_CONFIG_FILE):
+        return {"active_server_id": ""}
+    try:
+        with open(MCP_CONFIG_FILE, "r") as f:
+            return json.load(f)
+    except:
+        return {"active_server_id": ""}
+
+def save_mcp_config(config: Dict) -> None:
+    """Save MCP config to file"""
+    with open(MCP_CONFIG_FILE, "w") as f:
+        json.dump(config, f)
+
 class Pipe:
     def __init__(self):
         self.valves = self.Valves()
         self.servers = load_mcp_servers()
+        self.config = load_mcp_config()
+        # Set the active server from the saved config
+        if self.config.get("active_server_id"):
+            self.valves.server_id = self.config.get("active_server_id")
 
     class Valves(BaseModel):
         server_id: str = Field("", description="ID of the MCP server to use (set up via server management commands)")
@@ -101,6 +121,14 @@ class Pipe:
         """
         Process chat messages through an MCP server or handle server management commands
         """
+        # Reload server configurations to ensure we have the latest
+        self.servers = load_mcp_servers()
+        self.config = load_mcp_config()
+        
+        # Set the active server from the saved config if not already set
+        if not self.valves.server_id and self.config.get("active_server_id"):
+            self.valves.server_id = self.config.get("active_server_id")
+
         # Check if this is a special command
         messages = body.get("messages", [])
         if messages and len(messages) > 0 and "content" in messages[-1]:
@@ -115,9 +143,6 @@ class Pipe:
                 return await self._show_help()
 
         # Regular MCP functionality
-        # Reload server configurations to ensure we have the latest
-        self.servers = load_mcp_servers()
-        
         # Check if the server exists
         if not self.valves.server_id or self.valves.server_id not in self.servers:
             help_text = "Error: No MCP server selected. Please configure a server with MCP commands.\n\n"
@@ -240,6 +265,8 @@ class Pipe:
                 return "Error: Missing server_id. Usage: !mcp use <server_id>"
             server_id = args[0]
             return await self._use_server(server_id)
+        elif cmd == "status":
+            return await self._status()
         elif cmd == "help" or cmd == "":
             return await self._show_help()
         else:
@@ -258,10 +285,29 @@ class Pipe:
         help_text += "- `!mcp test <server_id>` - Test connection to a server\n"
         help_text += "- `!mcp models <server_id>` - Get available models from a server\n"
         help_text += "- `!mcp use <server_id>` - Select a server to use for this session\n"
+        help_text += "- `!mcp status` - Show the currently active server\n"
         help_text += "- `!mcp help` - Show this help message\n\n"
         help_text += "Example usage:\n"
-        help_text += "```\n!mcp list_popular\n!mcp add_popular brave_search your-api-key\n!mcp use server-id-from-list\n```"
+        help_text += "```\n!mcp list_popular\n!mcp add_popular brave_search your-api-key\n!mcp use server-id-from-list\n```\n\n"
+        help_text += "After selecting a server with `!mcp use`, just chat normally and your messages will be sent to that server."
         return help_text
+
+    async def _status(self) -> str:
+        """Show the currently active server"""
+        if not self.valves.server_id or self.valves.server_id not in self.servers:
+            return "No active MCP server selected. Use '!mcp use <server_id>' to select one."
+        
+        server = self.servers[self.valves.server_id]
+        
+        status_text = "## Current MCP Server Status\n\n"
+        status_text += f"**Active Server:** {server.get('name', 'Unnamed Server')}\n"
+        status_text += f"**Server ID:** `{self.valves.server_id}`\n"
+        status_text += f"**URL:** {server.get('url', 'Not set')}\n"
+        status_text += f"**Default Model:** {server.get('default_model', 'Not set')}\n"
+        status_text += f"**API Key:** {'Configured' if server.get('api_key') else 'Not set'}\n\n"
+        status_text += "You can send messages directly to this server now."
+        
+        return status_text
 
     async def _list_servers(self) -> str:
         """List all configured MCP servers"""
@@ -273,7 +319,10 @@ class Pipe:
         
         response = "## Configured MCP Servers\n\n"
         for server_id, server in self.servers.items():
-            response += f"### {server.get('name', 'Unnamed Server')}\n"
+            if server_id == self.valves.server_id:
+                response += f"### {server.get('name', 'Unnamed Server')} (ACTIVE)\n"
+            else:
+                response += f"### {server.get('name', 'Unnamed Server')}\n"
             response += f"- ID: `{server_id}`\n"
             response += f"- URL: {server.get('url', 'Not set')}\n"
             response += f"- Default Model: {server.get('default_model', 'Not set')}\n"
@@ -328,7 +377,12 @@ class Pipe:
         # Save the updated configuration
         save_mcp_servers(self.servers)
         
-        return f"MCP server '{server_info['name']}' added successfully!\nServer ID: `{new_server_id}`\n\nUse this ID to configure this session with: !mcp use {new_server_id}"
+        # Use this server immediately
+        self.valves.server_id = new_server_id
+        self.config["active_server_id"] = new_server_id
+        save_mcp_config(self.config)
+        
+        return f"MCP server '{server_info['name']}' added successfully and selected for use!\nServer ID: `{new_server_id}`\n\nYou can now start chatting with this server."
 
     async def _add_server(self, name: str, url: str, api_key: str = "", default_model: str = "") -> str:
         """Add a new MCP server"""
@@ -353,7 +407,12 @@ class Pipe:
         # Save the updated configuration
         save_mcp_servers(self.servers)
         
-        return f"MCP server '{name}' added successfully!\nServer ID: `{server_id}`\n\nUse this ID to configure this session with: !mcp use {server_id}"
+        # Use this server immediately
+        self.valves.server_id = server_id
+        self.config["active_server_id"] = server_id
+        save_mcp_config(self.config)
+        
+        return f"MCP server '{name}' added successfully and selected for use!\nServer ID: `{server_id}`\n\nYou can now start chatting with this server."
 
     async def _update_server(self, server_id: str, field: str, value: str) -> str:
         """Update an existing MCP server"""
@@ -395,11 +454,21 @@ class Pipe:
         
         server_name = self.servers[server_id].get("name", "Unnamed Server")
         
+        # Check if this is the active server
+        is_active = server_id == self.valves.server_id
+        
         # Remove the server
         del self.servers[server_id]
         
         # Save the updated configuration
         save_mcp_servers(self.servers)
+        
+        # If the active server was deleted, clear the active server
+        if is_active:
+            self.valves.server_id = ""
+            self.config["active_server_id"] = ""
+            save_mcp_config(self.config)
+            return f"MCP server '{server_name}' deleted successfully! This was your active server, so you'll need to select a new one with '!mcp use <server_id>'."
         
         return f"MCP server '{server_name}' deleted successfully!"
 
@@ -514,8 +583,10 @@ class Pipe:
         
         server = self.servers[server_id]
         
-        # Update the valve
+        # Update the valve and save to config
         self.valves.server_id = server_id
+        self.config["active_server_id"] = server_id
+        save_mcp_config(self.config)
         
         return f"Now using MCP server '{server.get('name')}' for this session.\n\nYou can now chat with this server!"
 
