@@ -19,7 +19,7 @@ This repository provides integration between Open WebUI and MCP (Model Context P
    - `mcp_pipe.py` - The main connector Pipe Function
    - `mcp_action.py` - The server management Action Function
 
-2. In Open WebUI, go to Workspace > Functions
+2. In Open WebUI, go to **Admin > Settings > Functions**
 
 3. Click "Import" and select the downloaded files
 
@@ -27,7 +27,7 @@ This repository provides integration between Open WebUI and MCP (Model Context P
 
 ### Method 2: Direct Installation from GitHub
 
-1. In Open WebUI, go to Workspace > Functions
+1. In Open WebUI, go to **Admin > Settings > Functions**
 
 2. Click "New" and select "Import from URL"
 
@@ -77,10 +77,9 @@ This repository provides integration between Open WebUI and MCP (Model Context P
 
 ### Using MCP Servers
 
-1. Enable the "MCP Connector" Pipe Function
+1. Enable the "MCP Connector" Pipe Function in **Admin > Settings > Functions**
 
 2. Configure the Pipe Function:
-   - Go to Workspace > Functions 
    - Find "MCP Connector" and click the gear icon
    - Set the `server_id` valve to the ID of your MCP server (from the list_servers command)
    - Set a `default_model` if desired
@@ -127,6 +126,7 @@ If you encounter issues:
 3. Ensure the server supports the OpenAI-compatible chat completions endpoint
 4. Test the connection using the `/test_connection` command
 5. Check for error messages in the Open WebUI logs
+6. If you see parsing errors during installation, make sure you're using the latest version from this repository
 
 ## Local Development
 
@@ -141,7 +141,7 @@ To develop and test locally:
 2. Make your changes to the Python files
 
 3. Test your changes:
-   - Copy the files to your Open WebUI installation or import them directly
+   - Copy the files to your Open WebUI installation or import them directly in Admin > Settings > Functions
    - Try out the functions and debug any issues
 
 4. To contribute back:
