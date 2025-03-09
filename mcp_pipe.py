@@ -3,7 +3,7 @@ title: MCP Connector
 author: Open WebUI Contributor
 description: Connect to MCP (Model Context Protocol) servers from Open WebUI
 required_open_webui_version: 0.5.0
-version: 0.3.0
+version: 0.3.1
 license: MIT
 """
 
@@ -113,16 +113,30 @@ class Pipe:
     async def _handle_non_streaming(self, session, server_url, headers, payload, _event_emitter_):
         """Handle non-streaming request to MCP server"""
         async with session.post(
-            f"{server_url}/chat/completions",
+            f"{server_url.rstrip('/')}/chat/completions",
             headers=headers,
             json=payload,
             timeout=aiohttp.ClientTimeout(total=self.valves.timeout_seconds)
         ) as response:
             if response.status != 200:
-                error_text = await response.text()
-                return f"Error connecting to MCP server: {response.status} - {error_text}"
-            
-            response_json = await response.json()
+                # Try the alternative path format if the first one fails
+                try:
+                    async with session.post(
+                        f"{server_url.rstrip('/')}/v1/chat/completions",
+                        headers=headers,
+                        json=payload,
+                        timeout=aiohttp.ClientTimeout(total=self.valves.timeout_seconds)
+                    ) as alt_response:
+                        if alt_response.status != 200:
+                            error_text = await alt_response.text()
+                            return f"Error connecting to MCP server: {alt_response.status} - {error_text}"
+                        
+                        response_json = await alt_response.json()
+                except Exception as e:
+                    error_text = await response.text()
+                    return f"Error connecting to MCP server: {response.status} - {error_text}"
+            else:
+                response_json = await response.json()
             
             # Extract the response content
             if "choices" in response_json and len(response_json["choices"]) > 0:
@@ -149,40 +163,53 @@ class Pipe:
         """Handle streaming request to MCP server"""
         full_response = ""
         
-        async with session.post(
-            f"{server_url}/chat/completions",
-            headers=headers,
-            json=payload,
-            timeout=aiohttp.ClientTimeout(total=self.valves.timeout_seconds)
-        ) as response:
-            if response.status != 200:
-                error_text = await response.text()
-                return f"Error connecting to MCP server: {response.status} - {error_text}"
-            
-            # Process the streaming response
-            async for line in response.content:
-                line = line.decode('utf-8').strip()
+        try:
+            async with session.post(
+                f"{server_url.rstrip('/')}/chat/completions",
+                headers=headers,
+                json=payload,
+                timeout=aiohttp.ClientTimeout(total=self.valves.timeout_seconds)
+            ) as response:
+                if response.status != 200:
+                    # Try the alternative path format if the first one fails
+                    async with session.post(
+                        f"{server_url.rstrip('/')}/v1/chat/completions",
+                        headers=headers,
+                        json=payload,
+                        timeout=aiohttp.ClientTimeout(total=self.valves.timeout_seconds)
+                    ) as alt_response:
+                        if alt_response.status != 200:
+                            error_text = await alt_response.text()
+                            return f"Error connecting to MCP server: {alt_response.status} - {error_text}"
+                        
+                        response = alt_response
                 
-                # Skip empty lines and [DONE] marker
-                if not line or line == "data: [DONE]":
-                    continue
-                
-                # Remove "data: " prefix if present
-                if line.startswith("data: "):
-                    line = line[6:]
-                
-                try:
-                    chunk = json.loads(line)
+                # Process the streaming response
+                async for line in response.content:
+                    line = line.decode('utf-8').strip()
                     
-                    # Extract content delta
-                    if "choices" in chunk and len(chunk["choices"]) > 0:
-                        delta = chunk["choices"][0].get("delta", {})
-                        if "content" in delta:
-                            content_chunk = delta["content"]
-                            full_response += content_chunk
-                except:
-                    # Skip lines that can't be parsed as JSON
-                    continue
+                    # Skip empty lines and [DONE] marker
+                    if not line or line == "data: [DONE]":
+                        continue
+                    
+                    # Remove "data: " prefix if present
+                    if line.startswith("data: "):
+                        line = line[6:]
+                    
+                    try:
+                        chunk = json.loads(line)
+                        
+                        # Extract content delta
+                        if "choices" in chunk and len(chunk["choices"]) > 0:
+                            delta = chunk["choices"][0].get("delta", {})
+                            if "content" in delta:
+                                content_chunk = delta["content"]
+                                full_response += content_chunk
+                    except:
+                        # Skip lines that can't be parsed as JSON
+                        continue
+        except Exception as e:
+            return f"Error in streaming: {str(e)}"
         
         # Emit completion status if event emitter is available
         if _event_emitter_:
