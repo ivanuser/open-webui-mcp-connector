@@ -5,6 +5,7 @@ This repository provides integration between Open WebUI and MCP (Model Context P
 ## Features
 
 - Connect to any OpenAI API-compatible MCP servers from Open WebUI
+- Easy setup with predefined popular MCP servers
 - Manage multiple MCP server configurations
 - Test connectivity to servers
 - Secure API key storage
@@ -45,7 +46,16 @@ This repository provides integration between Open WebUI and MCP (Model Context P
 
 2. In a chat with any model, use the following commands:
 
-   - **Add a server**:
+   - **Add a predefined popular server**:
+     ```
+     /list_popular_servers
+     ```
+     Then add one using:
+     ```
+     /add_popular_server server_id="brave_search" api_key="your-api-key" default_model="model-name"
+     ```
+
+   - **Add a custom server**:
      ```
      /add_server name="My MCP Server" url="https://example.com/api" api_key="your-api-key" default_model="model-name"
      ```
@@ -89,6 +99,21 @@ This repository provides integration between Open WebUI and MCP (Model Context P
 3. The MCP Connector will now appear as a model in your model selection dropdown
 
 4. Select the "MCP Connector" to start chatting using your MCP server
+
+## Predefined Popular Servers
+
+The connector includes a list of popular predefined MCP servers that you can easily add to your configuration:
+
+- **Anthropic Reference Implementation** - Official Anthropic MCP server with core features
+- **Brave Search** - Web and local search using Brave's Search API
+- **Kagi Search** - Search the web using Kagi's search API
+- **Tavily Search** - Search engine for AI agents by Tavily
+- **OpenAI** - OpenAI models integration
+- **Filesystem** - Local filesystem access (requires local setup)
+- **GitHub** - GitHub API integration (requires local setup)
+- **Memory** - Knowledge graph-based memory system (requires local setup)
+
+You can view the complete list with detailed information using the `/list_popular_servers` command.
 
 ## Compatibility
 
